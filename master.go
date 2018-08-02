@@ -19,7 +19,7 @@ func generatePrefixes() []string {
 }
 
 type Master struct {
-	workers  map[string](chan string)
+	workers  map[string]Worker
 	prefixes []string
 }
 
@@ -27,7 +27,7 @@ type Master struct {
 func NewMaster() Master {
 	p := generatePrefixes()
 	m := &Master{}
-	m.workers = make(map[string](chan string))
+	m.workers = make(map[string]Worker)
 	m.prefixes = p
 	return m
 }
@@ -40,13 +40,12 @@ func (m *Master) Run(n int) {
 			// If we have encountered this prefix before, use the
 			// previously made channel, otherwise create a new
 			// channel and store the prefix
-			if ch, ok := m.workers[prefix]; ok {
-				ch <- randomString()
-			} else {
-				ch = make(chan string)
-				m.workers[prefix] = ch
-				ch <- randomString()
+			var worker Worker
+			if worker, ok := m.workers[prefix]; !ok {
+				worker = NewWorker(2, fmt.Sprintf("%s%d", prefix, rand.Intn(10)))
+				m.workers[prefix] = worker
 			}
+			worker.Process(randomString())
 		}()
 	}
 }
