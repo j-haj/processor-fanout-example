@@ -21,6 +21,7 @@ func generatePrefixes() []string {
 type Master struct {
 	workers  map[string]Worker
 	prefixes []string
+	exit     chan bool
 }
 
 // NewMaster creates a new master struct with generated prefixes.
@@ -40,13 +41,26 @@ func (m *Master) Run(n int) {
 			// If we have encountered this prefix before, use the
 			// previously made channel, otherwise create a new
 			// channel and store the prefix
-			var worker Worker
-			if worker, ok := m.workers[prefix]; !ok {
-				worker = NewWorker(2, fmt.Sprintf("%s%d", prefix, rand.Intn(10)))
+			if _, ok := m.workers[prefix]; !ok {
+				id := fmt.Sprintf("%s%d", prefix, rand.Intn(10))
+				worker = NewWorker(2, m.exit)
 				m.workers[prefix] = worker
 			}
+			worker := m.workers[prefix]
 			worker.Process(randomString())
 		}()
+	}
+}
+
+func (m *Master) ExitTasks() {
+	for _, worker := range m.workers {
+		worker.Exit <- true
+	}
+}
+
+func (m *Master) Wait() {
+	for _, worker := range m.workers {
+		<-worker.Done
 	}
 }
 
